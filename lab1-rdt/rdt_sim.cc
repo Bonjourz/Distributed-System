@@ -281,7 +281,7 @@ void Sender_ToLowerLayer(struct packet *pkt)
 
     EventReceiverFromLowerLayer *e = new EventReceiverFromLowerLayer;
     memcpy(&e->pkt.data, pkt->data, RDT_PKTSIZE);
-
+    
     /* packet corrupted at rate "corrupt_rate" */
     if (myrandom()<corrupt_rate) {
 	for (int i=0; i<RDT_PKTSIZE; i++) {
