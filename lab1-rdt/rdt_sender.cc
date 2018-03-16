@@ -23,14 +23,17 @@
 #include <string.h>
 
 #include <list>
-#include <vector>
-#include <queue>
-#include <iostream>
 
 #include "rdt_struct.h"
 #include "rdt_sender.h"
 #include "rdt_check.h"
-using namespace std;
+
+#define WINDOW_SIZE 10
+#define TIMEOUT 0.2
+#define HEAD_SIZE 1
+#define NUM_SIZE 2
+#define CHECKSUM_SIZE 2
+#define MAXPALOAD_SIZE RDT_PKTSIZE - HEAD_SIZE - NUM_SIZE - CHECKSUM_SIZE
 
 static char window_info[WINDOW_SIZE];
 static short win_left = 0;
@@ -156,7 +159,7 @@ void Sender_Timeout()
   /* If the get the end */
   if (win_left >= pkt_num)
     return;
-  
+
   Sender_sendpacket();
   Sender_StartTimer(TIMEOUT);
 }

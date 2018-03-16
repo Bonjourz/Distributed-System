@@ -1,0 +1,31 @@
+Distributed System Lab1: rdt
+
+普通数据包的结构如下图：
+|<- 1 byte ->|<-2 byte->|<-123 bytes->|<-2 byte->|
+|payload size|packet num|  payload    | checksum |
+第一个字节表示内容的大小，第2 3个字节表示数据包的顺序，最后两个字节使用作错误检查
+
+ACK数据包的结构如下，除了第一个字节之外和payload之外与普通数据包相同。
+|<- 1 byte ->|<-2 byte->|<-  123  bytes  ->|<-2 byte->|
+| always 0xff| ack num  |not used(always 0)| checksum |
+
+
+首先对于上层传递过来的数据包，进行切割并存在相应的缓冲区当中。然后进入发送数据包的
+过程当中。本次lab采用selective repeat的方式，有一个发送的窗口(sliding window)，
+例如：
+当window size是7时：
+ 1->2->3->4->5->6->7->8->9
+|<- sliding window ->|
+发送1-7数据包，收取ack数据包，当收到最左边第1个数据包的ack时，window可以向右移一
+位；如果超时的话，那么重新发送没有收到ack的数据包。
+
+在接收端有一个ring buffer，则接受相应的数据包，如果接收到的数据包不在buffer范围
+之内，则丢弃数据包。如果在范围值呢，则存在buffer当中，当数据包能够连续排列时，按照
+相应的数据发送到接收端的上层。
+
+对于错误检查，采用checksum的方式，将数据包的其他为以2字节的单位相加，然后做一些位
+操作的处理，形成checksum（详见代码）。
+
+对于性能而言，测试发现时间与TIMEOUT的选择正相关，发包资源利用率和window size相关。
+
+本次lab中选择timeout = 0.3，windowsize = 10，发现效率最高。

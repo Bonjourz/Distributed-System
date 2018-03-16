@@ -30,11 +30,4 @@ struct packet {
     char data[RDT_PKTSIZE];
 };
 
-#define WINDOW_SIZE 10
-#define TIMEOUT 0.2
-#define HEAD_SIZE 1
-#define NUM_SIZE 2
-#define CHECKSUM_SIZE 2
-#define MAXPALOAD_SIZE RDT_PKTSIZE - HEAD_SIZE - NUM_SIZE - CHECKSUM_SIZE
-
 #endif  /* _RDT_STRUCT_H_ */

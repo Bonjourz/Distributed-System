@@ -22,15 +22,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <map>
-#include <iostream>
 
 #include "rdt_struct.h"
 #include "rdt_receiver.h"
 #include "rdt_check.h"
 
-#define MAX(a, b) a > b ? a : b
+#define WINDOW_SIZE 10
+#define TIMEOUT 0.2
+#define HEAD_SIZE 1
+#define NUM_SIZE 2
+#define CHECKSUM_SIZE 2
+#define MAXPALOAD_SIZE RDT_PKTSIZE - HEAD_SIZE - NUM_SIZE - CHECKSUM_SIZE
 
-using namespace std;
+#define MAX(a, b) a > b ? a : b
 
 static int ptr_left;
 static int ptr_right;

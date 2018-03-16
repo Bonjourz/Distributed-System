@@ -1,4 +1,5 @@
 *.o
 *.pdf
 .gdbinit
+*.tar.gz
 rdt_sim
