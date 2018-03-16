@@ -32,7 +32,7 @@
 #include "rdt_check.h"
 using namespace std;
 
-static char window_info[0xffff];
+static char window_info[WINDOW_SIZE];
 static short win_left = 0;
 static short win_right = 0;
 static short pkt_num = 0;
@@ -43,15 +43,14 @@ static std::list<packet *>pkt_list;
 const short maxpayload_size = 123;
 
 static void Sender_sendpacket() {
+  /* Update the window */
   win_right = MIN(win_left + WINDOW_SIZE, pkt_num);
   std::list<packet *>::iterator it = pkt_list.begin();
   for (int i = 0; i < win_right - win_left; i++) {
-    if (window_info[win_left + i] == (char)0) {
-      //short tmp;
-      //memcpy(&tmp, (*it)->data + 1, sizeof(short));
-      //cout << "send num " << tmp << endl;
+    /* If get the ack, no need to send again */
+    if (window_info[(win_left + i) % WINDOW_SIZE] == (char)0)
       Sender_ToLowerLayer(*it);
-    }
+
     it++;
   }
 }
@@ -70,7 +69,7 @@ void Sender_Init()
 {
   win_left = 0;
   win_right = 0;
-  memset(window_info, 0, 0xffff);
+  memset(window_info, 0, WINDOW_SIZE);
   fprintf(stdout, "At %.2fs: sender initializing ...\n", GetSimulationTime());
 }
 
@@ -90,22 +89,16 @@ void Sender_FromUpperLayer(struct message *msg)
   if (msg->size == 0)
     return;
 
-  //cout << "begin sender from" << endl;
-  //cout << "sender from upper" << endl;
   /* reuse the same packet data structure */
   struct packet *pkt;
 
   /* the cursor always points to the first unsent byte in the message */
   int cursor = 0;
 
-  /* packet num includes the header packet */
-  //int packet_num = (msg->size-1) / maxpayload_size + 2;
-
   while (msg->size-cursor > maxpayload_size) {
   /* fill in the packet */
     pkt = (packet *)malloc(sizeof(struct packet));
     Sender_Makepack(maxpayload_size, pkt_num, msg->data + cursor, pkt);
-    ASSERT(pkt);
     pkt_list.push_back(pkt);
 
     /* move the cursor */
@@ -118,14 +111,12 @@ void Sender_FromUpperLayer(struct message *msg)
   /* fill in the packet */
     pkt = (packet *)malloc(sizeof(struct packet));
     Sender_Makepack(msg->size - cursor, pkt_num, msg->data + cursor, pkt);
-    ASSERT(pkt);
     pkt_list.push_back(pkt);
     pkt_num++;
   }
-  //cout << "finish sender from" << endl;
+
   Sender_StopTimer();
   Sender_StartTimer(TIMEOUT);
-  //cout << "finish sender from 123" << endl;
 }
 
 /* event handler, called when a packet is passed from the lower layer at the 
@@ -137,23 +128,23 @@ void Sender_FromLowerLayer(struct packet *pkt)
 
   short ack_num;
   memcpy(&ack_num, (char *)pkt->data + HEAD_SIZE, sizeof(short));
-  
+
   if (ack_num < win_left || ack_num >= win_right || ack_num >= pkt_num)
     return;
 
   if (Sender_isTimerSet())
     Sender_StopTimer();
-  window_info[ack_num] = (char)1;
-  //cout << " ack_num " << ack_num << " " << win_left << " " << win_right << " " << pkt_num << endl;
+  window_info[ack_num % WINDOW_SIZE] = (char)1;
 
   /* Move the sliding window */
-  while (win_left < pkt_num && window_info[win_left] == (char)1) {
+  while (win_left < pkt_num && window_info[win_left % WINDOW_SIZE] == (char)1) {
+    window_info[win_left % WINDOW_SIZE] = (char)0;
+
+    /* Free the packet */
     struct packet *pkt = pkt_list.front();
-    ASSERT(pkt != NULL);
     if (pkt != NULL) free(pkt);
     pkt_list.pop_front();
     win_left++;
-    ASSERT(win_left <= win_right);
   }
 
   Sender_StartTimer(TIMEOUT);
@@ -162,8 +153,10 @@ void Sender_FromLowerLayer(struct packet *pkt)
 /* event handler, called when the timer expires */
 void Sender_Timeout()
 {
+  /* If the get the end */
   if (win_left >= pkt_num)
     return;
+  
   Sender_sendpacket();
   Sender_StartTimer(TIMEOUT);
 }

@@ -34,31 +34,26 @@ using namespace std;
 
 static int ptr_left;
 static int ptr_right;
-const int maxpayload_size = 123;
+
 const int buf_size = 10;
 static message* buf[buf_size];
-const int head_size = 1;
-const int num_size = 2;
+
 static char win_info[buf_size];
 
 static void Receiver_makeack(short num) {
-    //cout << "ack 1" << endl;
     struct packet *pkt = (struct packet*) malloc(sizeof(struct packet));
     memset(pkt->data, 0, RDT_PKTSIZE);
-    //cout << "ack 3" << endl;
     short cnt = 0xff;
     memcpy(pkt->data, &cnt, sizeof(short));
-    memcpy((char *)pkt->data + head_size, &num, sizeof(short));
-    memset((char *)pkt->data + head_size + num_size, 0, maxpayload_size + 2);
+    memcpy((char *)pkt->data + HEAD_SIZE, &num, sizeof(short));
+    memset((char *)pkt->data + HEAD_SIZE + NUM_SIZE, 0, MAXPALOAD_SIZE + 2);
     rdt_addchecksum(pkt);
     Receiver_ToLowerLayer(pkt);
 }
 
 static void Receiver_getpacket(short payload_size, struct packet *pkt, short *num, char *data) {
-    //cout << "receiver getpkt1" << endl;
-    memcpy(num, (char *)pkt->data + head_size, sizeof(short));
-    memcpy(data, (char *)pkt->data + head_size + num_size, payload_size);
-    //cout << "receiver getpkt2" << endl;
+    memcpy(num, (char *)pkt->data + HEAD_SIZE, sizeof(short));
+    memcpy(data, (char *)pkt->data + HEAD_SIZE + NUM_SIZE, payload_size);
 }
 
 
@@ -84,23 +79,18 @@ void Receiver_Final()
    receiver */
 void Receiver_FromLowerLayer(struct packet *pkt)
 {
-    //cout << "form lower layer 1" << endl;
+    /* Check correctness */
     if (!rdt_check(pkt))
         return;
 
-    short num;
     struct message *msg = (struct message*) malloc(sizeof(struct message));
-    ASSERT(msg != NULL);
-    //cout << "form lower layer 2" << endl;
-    memcpy(&msg->size, pkt->data, head_size);
+    memcpy(&msg->size, pkt->data, HEAD_SIZE);
     msg->size &= 0xff;
-    //cout << "msg->size " << msg->size << endl;
     msg->data = (char *)malloc(msg->size);
-
+    short num;
     Receiver_getpacket(msg->size, pkt, &num, msg->data);
-    //cout << "from lower layer 2" << endl;
-    //cout << num << " " << ptr_left << " " << ptr_right << "info" << endl;
-    //cout << "receive num" << num << endl;
+
+    /* If the number of packet is not in the window */
     if (num < ptr_left || num >= ptr_left + buf_size) {
         if (num < ptr_left)
             Receiver_makeack(num);
@@ -110,19 +100,20 @@ void Receiver_FromLowerLayer(struct packet *pkt)
         return;
     }
 
+    /* If the number of packet is at the margin of the window */
     else if (num == ptr_left){
         Receiver_makeack(num);
         Receiver_ToUpperLayer(msg);
         ASSERT(buf[ptr_left % buf_size] == 0);
         ptr_left++;
 
+        /* Move the window */
         while (ptr_left < ptr_right && win_info[ptr_left % buf_size] == (char) 1) {
-            //cout << "ptr_left" << ptr_left << " ptr_right" << ptr_right << endl;
-            ASSERT(buf[ptr_left % buf_size] != NULL);
             win_info[ptr_left % buf_size] = (char)0;
             msg = buf[ptr_left % buf_size];
             Receiver_ToUpperLayer(msg);
 
+            /* Clear the buffer */
             buf[ptr_left % buf_size] = NULL;
             if (msg != NULL && msg->data != NULL) free(msg->data);
             if (msg != NULL) free(msg);
@@ -132,12 +123,11 @@ void Receiver_FromLowerLayer(struct packet *pkt)
         ptr_right = MAX(ptr_left, ptr_right);
     }
 
+    /* If the number of packet is in the window */
     else if (num > ptr_left && num < ptr_left + buf_size) {
-        //cout << "wrong?" << endl;
         Receiver_makeack(num);
         buf[num % buf_size] = msg;
         win_info[num % buf_size] = (char)1;
         ptr_right = MAX(ptr_right, num + 1);
     }
-    //cout << "from lower layer 3" << endl;
 }
