@@ -29,6 +29,7 @@
 
 #include "rdt_struct.h"
 #include "rdt_sender.h"
+#include "rdt_check.h"
 using namespace std;
 
 static char window_info[0xffff];
@@ -61,10 +62,7 @@ static void Sender_Makepack(short payload_size, short num, const char *content, 
   memcpy(pkt->data, &payload_size, sizeof(short));
   memcpy((char *)pkt->data + HEAD_SIZE, &num, sizeof(short));
   memcpy((char *)pkt->data + HEAD_SIZE + NUM_SIZE, content, payload_size);
-  
-  // TO DO: add checksum
-  short check_sum = 0;
-  memcpy((char *)pkt->data + HEAD_SIZE + NUM_SIZE + maxpayload_size, &check_sum, sizeof(short));
+  rdt_addchecksum(pkt);
 }
 
 /* sender initialization, called once at the very beginning */
@@ -95,7 +93,7 @@ void Sender_FromUpperLayer(struct message *msg)
   //cout << "begin sender from" << endl;
   //cout << "sender from upper" << endl;
   /* reuse the same packet data structure */
-  packet *pkt;
+  struct packet *pkt;
 
   /* the cursor always points to the first unsent byte in the message */
   int cursor = 0;
@@ -126,7 +124,7 @@ void Sender_FromUpperLayer(struct message *msg)
   }
   //cout << "finish sender from" << endl;
   Sender_StopTimer();
-  Sender_StartTimer(0);
+  Sender_StartTimer(TIMEOUT);
   //cout << "finish sender from 123" << endl;
 }
 
@@ -134,12 +132,17 @@ void Sender_FromUpperLayer(struct message *msg)
    sender */
 void Sender_FromLowerLayer(struct packet *pkt)
 {
-  if (Sender_isTimerSet())
-    Sender_StopTimer();
+  if (!rdt_check(pkt))
+    return;
 
-  // TO DO: correctness check
   short ack_num;
   memcpy(&ack_num, (char *)pkt->data + HEAD_SIZE, sizeof(short));
+  
+  if (ack_num < win_left || ack_num >= win_right || ack_num >= pkt_num)
+    return;
+
+  if (Sender_isTimerSet())
+    Sender_StopTimer();
   window_info[ack_num] = (char)1;
   //cout << " ack_num " << ack_num << " " << win_left << " " << win_right << " " << pkt_num << endl;
 

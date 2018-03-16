@@ -31,7 +31,7 @@ struct packet {
 };
 
 #define WINDOW_SIZE 10
-#define TIMEOUT 0.3
+#define TIMEOUT 0.2
 #define HEAD_SIZE 1
 #define NUM_SIZE 2
 #define CHECKSUM_SIZE 2

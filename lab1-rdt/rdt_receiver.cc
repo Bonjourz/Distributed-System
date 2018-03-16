@@ -26,6 +26,7 @@
 
 #include "rdt_struct.h"
 #include "rdt_receiver.h"
+#include "rdt_check.h"
 
 #define MAX(a, b) a > b ? a : b
 
@@ -43,15 +44,14 @@ static char win_info[buf_size];
 static void Receiver_makeack(short num) {
     //cout << "ack 1" << endl;
     struct packet *pkt = (struct packet*) malloc(sizeof(struct packet));
+    memset(pkt->data, 0, RDT_PKTSIZE);
     //cout << "ack 3" << endl;
     short cnt = 0xff;
     memcpy(pkt->data, &cnt, sizeof(short));
     memcpy((char *)pkt->data + head_size, &num, sizeof(short));
     memset((char *)pkt->data + head_size + num_size, 0, maxpayload_size + 2);
-    //cout << "ack 2" << endl;
-    // TO DO: add check sum
+    rdt_addchecksum(pkt);
     Receiver_ToLowerLayer(pkt);
-    //cout << "ack 4" << endl;
 }
 
 static void Receiver_getpacket(short payload_size, struct packet *pkt, short *num, char *data) {
@@ -85,7 +85,10 @@ void Receiver_Final()
 void Receiver_FromLowerLayer(struct packet *pkt)
 {
     //cout << "form lower layer 1" << endl;
-    short num, check_sum = 0;;
+    if (!rdt_check(pkt))
+        return;
+
+    short num;
     struct message *msg = (struct message*) malloc(sizeof(struct message));
     ASSERT(msg != NULL);
     //cout << "form lower layer 2" << endl;
