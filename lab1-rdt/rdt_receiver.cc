@@ -14,7 +14,7 @@
  *
  *       The struct of ack packet is as following:
  *       |<- 1 byte ->|<-2 byte->|<-123 bytes->|<-2 byte->|
- *       |  always -1 |packet num|  not used   | checksum |
+ *       |  always -1 | ack num  |  not used   | checksum |
  */
 
 
@@ -97,6 +97,7 @@ void Receiver_FromLowerLayer(struct packet *pkt)
     Receiver_getpacket(msg->size, pkt, &num, msg->data);
     //cout << "from lower layer 2" << endl;
     //cout << num << " " << ptr_left << " " << ptr_right << "info" << endl;
+    //cout << "receive num" << num << endl;
     if (num < ptr_left || num >= ptr_left + buf_size) {
         if (num < ptr_left)
             Receiver_makeack(num);
