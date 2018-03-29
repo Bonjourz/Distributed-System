@@ -1,10 +1,14 @@
 #include <time.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "rte_common.h"
 #include "rte_mbuf.h"
 
 #include "qos.h"
+
+extern uint32_t queuesize[APP_FLOWS_MAX];
+uint32_t color_cnt[APP_FLOWS_MAX][COLORNUM];
 
 int
 main(int argc, char **argv)
@@ -23,6 +27,8 @@ main(int argc, char **argv)
     uint64_t time = 0;
     int cnt_send[APP_FLOWS_MAX];
     int cnt_pass[APP_FLOWS_MAX];
+    memset(color_cnt, 0, sizeof(uint32_t) * APP_FLOWS_MAX * COLORNUM);
+
     for (i = 0; i < APP_FLOWS_MAX; i++) {
         cnt_send[i] = cnt_pass[i] = 0;
     }
@@ -39,17 +45,26 @@ main(int argc, char **argv)
         
             /** get color */
             enum qos_color color = qos_meter_run(flow_id, pkt_len, time);
+            assert(color >= 0 && color <= 2);
             
-            /** make decision: weather drop */
+            color_cnt[flow_id][color]++;
+            
+            /** make decision: whether drop */
             int pass = qos_dropper_run(flow_id, color, time);
 
             cnt_send[flow_id] += pkt_len;
             cnt_pass[flow_id] += pass ? 0 : pkt_len;
-
+            queuesize[flow_id] += pass ? 0 : pkt_len;
         }
+        
+        memset(queuesize, 0, sizeof(uint32_t) * APP_FLOWS_MAX);
         time += 1000;
     }
 
+    for (i = 0; i < APP_FLOWS_MAX; i++) {
+        printf("%d: green %lld yellow %lld red %lld\n", i, (long long int)color_cnt[i][GREEN], 
+        (long long int)color_cnt[i][YELLOW], (long long int)color_cnt[i][RED]);
+    }
     for (i = 0; i < APP_FLOWS_MAX; i++) {
         printf("fid: %d, send: %d, pass: %d\n", i, cnt_send[i], cnt_pass[i]);
     }
