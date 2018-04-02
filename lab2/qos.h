@@ -10,11 +10,8 @@
 enum qos_color {
     GREEN = 0,
     YELLOW,
-    RED,
-    COLORNUM
+    RED
 };
-
-uint32_t queuesize[APP_FLOWS_MAX];
 
 /* Init meter */
 int qos_meter_init(void);
